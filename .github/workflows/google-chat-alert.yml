@@ -1,0 +1,34 @@
+name: Deploy ## 21
+
+on:
+  workflow_dispatch: # 이 워크플로우는 수동으로 트리거할 수 있습니다.
+  push:
+    branches:
+      - develop # 'develop' 브랜치에 푸시될 때 워크플로우가 트리거됩니다.
+
+concurrency:
+  group: deploy-group
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # 워크플로우가 실행될 GitHub Actions 러너의 OS를 지정합니다.
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2 # 리포지토리의 코드를 체크아웃합니다.
+
+      - name: Notify Google Chat on Push Start
+        run: |
+          # 푸시에서 커밋 메시지와 작성자 정보 가져오기
+          COMMIT_MESSAGE=$(git log --format=%B -n 1 ${{ github.sha }})
+          COMMIT_AUTHOR=$(git log --format=%an -n 1 ${{ github.sha }})
+          COMMIT_USER_LOGIN="${{ github.event.sender.login }}"
+
+          # GitHub Actions의 시간은 UTC로 제공되므로, Asia/Seoul로 변환
+          CURRENT_TIME_KST=$(TZ="Asia/Seoul" date '+%Y-%m-%d %H:%M:%S')
+
+          curl -X POST \
+          -H 'Content-Type: application/json' \
+          -d "{\"text\": \"🐬 [google-chat-test]\n\n${COMMIT_AUTHOR}(${COMMIT_USER_LOGIN}) 님이 Push 하였습니다. 배포를 시작합니다.\n\n- 커밋 메시지: ${COMMIT_MESSAGE}\n- 시각: ${CURRENT_TIME_KST}\"}" \
+          "${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}"
